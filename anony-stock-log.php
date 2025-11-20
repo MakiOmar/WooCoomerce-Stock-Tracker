@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Anony Stock Log
- * Plugin URI: https://github.com/mohammadomar/anony-stock-log
- * Description: Accurate stock logging for WooCommerce products with advanced filtering capabilities.
+ * Plugin URI: https://github.com/MakiOmar/WooCoomerce-Stock-Tracker
+ * Description: Accurate stock logging for WooCommerce products with advanced filtering capabilities. Track all stock changes including manual edits, orders, restorations, and REST API updates. Filter by product ID, SKU, name, date range, and change type. Fully WPCS compliant.
  * Version: 1.0.0
  * Author: Mohammad Omar
- * Author URI: https://github.com/mohammadomar
+ * Author URI: https://github.com/MakiOmar
  * Text Domain: anony-stock-log
  * Domain Path: /languages
  * Requires at least: 5.0
@@ -14,6 +14,8 @@
  * WC tested up to: 8.0
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Network: false
+ * GitHub Plugin URI: MakiOmar/WooCoomerce-Stock-Tracker
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
