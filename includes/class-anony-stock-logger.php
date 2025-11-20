@@ -73,6 +73,9 @@ class Anony_Stock_Logger {
 
 		// Track manual stock changes.
 		add_action( 'wp_ajax_woocommerce_save_product_variations', array( $this, 'track_variation_stock' ), 5 );
+		
+		// Track stock before save_post_product.
+		add_action( 'save_post_product', array( $this, 'track_product_stock_before_save' ), 5, 1 );
 		add_action( 'save_post_product', array( $this, 'log_manual_stock_change' ), 99, 1 );
 
 		// Track stock from REST API.
@@ -137,6 +140,7 @@ class Anony_Stock_Logger {
 		}
 
 		// Skip if stock hasn't actually changed (and we have old stock to compare).
+		// But allow logging if old_stock is null (first time logging or couldn't determine old stock).
 		if ( null !== $old_stock && $old_stock === $new_stock ) {
 			return;
 		}
@@ -144,6 +148,9 @@ class Anony_Stock_Logger {
 		// Determine change type and reason.
 		$change_type = 'manual';
 		$change_reason = null;
+
+		// Check if we're currently saving a post (product edit).
+		$is_saving_product = doing_action( 'save_post' ) || doing_action( 'save_post_product' );
 
 		if ( doing_action( 'woocommerce_reduce_order_stock' ) ) {
 			$change_type = 'order';
@@ -173,14 +180,17 @@ class Anony_Stock_Logger {
 					);
 				}
 			}
+		} elseif ( $is_saving_product || ( is_admin() && isset( $_POST['post_type'] ) && 'product' === $_POST['post_type'] ) ) {
+			// Manual change from product edit page.
+			$change_reason = __( 'Manual edit: Product edit page', 'anony-stock-log' );
 		} else {
 			// Manual change - determine context.
 			if ( is_admin() && isset( $_REQUEST['action'] ) && 'woocommerce_save_product_variations' === $_REQUEST['action'] ) {
 				$change_reason = __( 'Manual edit: Product variation bulk save', 'anony-stock-log' );
-			} elseif ( is_admin() && isset( $_POST['save'] ) && isset( $_POST['post_type'] ) && 'product' === $_POST['post_type'] ) {
-				$change_reason = __( 'Manual edit: Product edit page', 'anony-stock-log' );
-			} else {
+			} elseif ( is_admin() ) {
 				$change_reason = __( 'Manual edit: Admin panel', 'anony-stock-log' );
+			} else {
+				$change_reason = __( 'Manual edit', 'anony-stock-log' );
 			}
 		}
 
@@ -308,6 +318,30 @@ class Anony_Stock_Logger {
 	}
 
 	/**
+	 * Track product stock before save_post_product.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function track_product_stock_before_save( $post_id ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		if ( ! isset( $_POST['post_type'] ) || 'product' !== $_POST['post_type'] ) {
+			return;
+		}
+
+		// Get the product before save to capture old stock.
+		$product = wc_get_product( $post_id );
+		if ( ! $product ) {
+			return;
+		}
+
+		// Store old stock before save.
+		$this->product_stock_before[ $post_id ] = $product->get_stock_quantity();
+	}
+
+	/**
 	 * Track variation stock changes.
 	 */
 	public function track_variation_stock() {
@@ -341,17 +375,43 @@ class Anony_Stock_Logger {
 			return;
 		}
 
+		// Check if stock was actually changed by comparing POST data with current stock.
 		$product = wc_get_product( $post_id );
 		if ( ! $product ) {
+			return;
+		}
+
+		// Only log if stock management is enabled for this product.
+		if ( ! $product->managing_stock() ) {
 			return;
 		}
 
 		$new_stock = $product->get_stock_quantity();
 		$old_stock = isset( $this->product_stock_before[ $post_id ] ) ? $this->product_stock_before[ $post_id ] : null;
 
-		if ( null !== $old_stock && $old_stock !== $new_stock ) {
-			$this->save_log( $product, $old_stock, $new_stock, 'manual' );
+		// If we don't have old stock tracked, try to get it from the log.
+		if ( null === $old_stock ) {
+			$old_stock = $this->get_last_stock_from_log( $post_id );
 		}
+
+		// Skip if stock hasn't actually changed (only if we have old stock to compare).
+		if ( null !== $old_stock && $old_stock === $new_stock ) {
+			return;
+		}
+
+		// Check if stock was actually submitted in POST (indicating a manual change).
+		$stock_was_submitted = isset( $_POST['_stock'] ) || isset( $_POST['_manage_stock'] );
+		
+		// Only log if stock was actually submitted or if we can detect a change.
+		if ( ! $stock_was_submitted && null === $old_stock && null === $new_stock ) {
+			return;
+		}
+
+		// Determine reason.
+		$change_reason = __( 'Manual edit: Product edit page', 'anony-stock-log' );
+
+		// Log the change.
+		$this->save_log( $product, $old_stock, $new_stock, 'manual', array( 'change_reason' => $change_reason ) );
 	}
 
 	/**
