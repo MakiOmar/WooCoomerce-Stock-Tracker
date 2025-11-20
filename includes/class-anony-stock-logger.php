@@ -36,6 +36,22 @@ class Anony_Stock_Logger {
 	private $rest_api_context = array();
 
 	/**
+	 * Debug log message.
+	 *
+	 * @param string $message Debug message.
+	 * @param array  $context Additional context data.
+	 */
+	private function debug_log( $message, $context = array() ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+			$log_message = '[Anony Stock Log] ' . $message;
+			if ( ! empty( $context ) ) {
+				$log_message .= ' | Context: ' . wp_json_encode( $context, JSON_PRETTY_PRINT );
+			}
+			error_log( $log_message );
+		}
+	}
+
+	/**
 	 * Get instance of this class.
 	 *
 	 * @return Anony_Stock_Logger
@@ -89,15 +105,27 @@ class Anony_Stock_Logger {
 	 */
 	public function track_stock_before( $product ) {
 		if ( ! $product instanceof WC_Product ) {
+			$this->debug_log( 'track_stock_before: Not a WC_Product instance' );
 			return;
 		}
 
 		$product_id = $product->get_id();
 		if ( ! $product_id ) {
+			$this->debug_log( 'track_stock_before: No product ID' );
 			return;
 		}
 
-		$this->product_stock_before[ $product_id ] = $product->get_stock_quantity();
+		$old_stock = $product->get_stock_quantity();
+		$this->product_stock_before[ $product_id ] = $old_stock;
+		
+		$this->debug_log(
+			'track_stock_before: Stock tracked',
+			array(
+				'product_id' => $product_id,
+				'stock'      => $old_stock,
+				'hook'       => 'woocommerce_before_product_object_save',
+			)
+		);
 	}
 
 	/**
@@ -122,26 +150,61 @@ class Anony_Stock_Logger {
 	 * @param WC_Product $product Product object.
 	 */
 	public function log_stock_change( $product ) {
+		$this->debug_log(
+			'log_stock_change: Hook fired',
+			array(
+				'current_action' => current_action(),
+				'is_product'     => $product instanceof WC_Product,
+			)
+		);
+
 		if ( ! $product instanceof WC_Product ) {
+			$this->debug_log( 'log_stock_change: Not a WC_Product instance' );
 			return;
 		}
 
 		$product_id = $product->get_id();
 		if ( ! $product_id ) {
+			$this->debug_log( 'log_stock_change: No product ID' );
 			return;
 		}
 
 		$new_stock = $product->get_stock_quantity();
 		$old_stock = isset( $this->product_stock_before[ $product_id ] ) ? $this->product_stock_before[ $product_id ] : null;
 
+		$this->debug_log(
+			'log_stock_change: Stock values',
+			array(
+				'product_id'    => $product_id,
+				'old_stock'     => $old_stock,
+				'new_stock'     => $new_stock,
+				'tracked_before' => isset( $this->product_stock_before[ $product_id ] ),
+			)
+		);
+
 		// If we don't have old stock tracked, try to get it from the last log entry.
 		if ( null === $old_stock ) {
 			$old_stock = $this->get_last_stock_from_log( $product_id );
+			$this->debug_log(
+				'log_stock_change: Retrieved old stock from log',
+				array(
+					'product_id' => $product_id,
+					'old_stock'  => $old_stock,
+				)
+			);
 		}
 
 		// Skip if stock hasn't actually changed (and we have old stock to compare).
 		// But allow logging if old_stock is null (first time logging or couldn't determine old stock).
 		if ( null !== $old_stock && $old_stock === $new_stock ) {
+			$this->debug_log(
+				'log_stock_change: Skipped - stock unchanged',
+				array(
+					'product_id' => $product_id,
+					'old_stock'  => $old_stock,
+					'new_stock'  => $new_stock,
+				)
+			);
 			return;
 		}
 
@@ -198,6 +261,24 @@ class Anony_Stock_Logger {
 		if ( $change_reason ) {
 			$extra_data['change_reason'] = $change_reason;
 		}
+
+		$this->debug_log(
+			'log_stock_change: Saving log entry',
+			array(
+				'product_id'   => $product_id,
+				'old_stock'    => $old_stock,
+				'new_stock'    => $new_stock,
+				'change_type'  => $change_type,
+				'change_reason' => isset( $extra_data['change_reason'] ) ? $extra_data['change_reason'] : null,
+				'current_action' => current_action(),
+				'doing_actions'  => array(
+					'save_post' => doing_action( 'save_post' ),
+					'save_post_product' => doing_action( 'save_post_product' ),
+					'reduce_order_stock' => doing_action( 'woocommerce_reduce_order_stock' ),
+					'restore_order_stock' => doing_action( 'woocommerce_restore_order_stock' ),
+				),
+			)
+		);
 
 		$this->save_log( $product, $old_stock, $new_stock, $change_type, $extra_data );
 
@@ -323,22 +404,48 @@ class Anony_Stock_Logger {
 	 * @param int $post_id Post ID.
 	 */
 	public function track_product_stock_before_save( $post_id ) {
+		$this->debug_log(
+			'track_product_stock_before_save: Hook fired',
+			array(
+				'post_id'       => $post_id,
+				'DOING_AUTOSAVE' => defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE,
+				'post_type'     => isset( $_POST['post_type'] ) ? $_POST['post_type'] : null,
+			)
+		);
+
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			$this->debug_log( 'track_product_stock_before_save: Skipped - autosave' );
 			return;
 		}
 
 		if ( ! isset( $_POST['post_type'] ) || 'product' !== $_POST['post_type'] ) {
+			$this->debug_log(
+				'track_product_stock_before_save: Skipped - not product post type',
+				array( 'post_type' => isset( $_POST['post_type'] ) ? $_POST['post_type'] : 'not set' )
+			);
 			return;
 		}
 
 		// Get the product before save to capture old stock.
 		$product = wc_get_product( $post_id );
 		if ( ! $product ) {
+			$this->debug_log( 'track_product_stock_before_save: Failed to get product', array( 'post_id' => $post_id ) );
 			return;
 		}
 
 		// Store old stock before save.
-		$this->product_stock_before[ $post_id ] = $product->get_stock_quantity();
+		$old_stock = $product->get_stock_quantity();
+		$this->product_stock_before[ $post_id ] = $old_stock;
+
+		$this->debug_log(
+			'track_product_stock_before_save: Stock tracked',
+			array(
+				'post_id'   => $post_id,
+				'old_stock' => $old_stock,
+				'managing_stock' => $product->managing_stock(),
+				'_stock_post' => isset( $_POST['_stock'] ) ? $_POST['_stock'] : 'not set',
+			)
+		);
 	}
 
 	/**
@@ -367,51 +474,135 @@ class Anony_Stock_Logger {
 	 * @param int $post_id Post ID.
 	 */
 	public function log_manual_stock_change( $post_id ) {
+		$this->debug_log(
+			'log_manual_stock_change: Hook fired',
+			array(
+				'post_id'        => $post_id,
+				'DOING_AUTOSAVE' => defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE,
+				'post_type'      => isset( $_POST['post_type'] ) ? $_POST['post_type'] : null,
+				'_stock_post'    => isset( $_POST['_stock'] ) ? $_POST['_stock'] : 'not set',
+				'_manage_stock_post' => isset( $_POST['_manage_stock'] ) ? $_POST['_manage_stock'] : 'not set',
+			)
+		);
+
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			$this->debug_log( 'log_manual_stock_change: Skipped - autosave' );
 			return;
 		}
 
 		if ( ! isset( $_POST['post_type'] ) || 'product' !== $_POST['post_type'] ) {
+			$this->debug_log(
+				'log_manual_stock_change: Skipped - not product post type',
+				array( 'post_type' => isset( $_POST['post_type'] ) ? $_POST['post_type'] : 'not set' )
+			);
 			return;
 		}
 
 		// Check if stock was actually changed by comparing POST data with current stock.
 		$product = wc_get_product( $post_id );
 		if ( ! $product ) {
+			$this->debug_log( 'log_manual_stock_change: Failed to get product', array( 'post_id' => $post_id ) );
 			return;
 		}
 
 		// Only log if stock management is enabled for this product.
 		if ( ! $product->managing_stock() ) {
+			$this->debug_log(
+				'log_manual_stock_change: Skipped - stock management not enabled',
+				array(
+					'post_id'        => $post_id,
+					'managing_stock' => $product->managing_stock(),
+				)
+			);
 			return;
 		}
 
 		$new_stock = $product->get_stock_quantity();
 		$old_stock = isset( $this->product_stock_before[ $post_id ] ) ? $this->product_stock_before[ $post_id ] : null;
 
+		$this->debug_log(
+			'log_manual_stock_change: Stock values before lookup',
+			array(
+				'post_id'        => $post_id,
+				'old_stock'      => $old_stock,
+				'new_stock'      => $new_stock,
+				'tracked_before' => isset( $this->product_stock_before[ $post_id ] ),
+			)
+		);
+
 		// If we don't have old stock tracked, try to get it from the log.
 		if ( null === $old_stock ) {
 			$old_stock = $this->get_last_stock_from_log( $post_id );
+			$this->debug_log(
+				'log_manual_stock_change: Retrieved old stock from log',
+				array(
+					'post_id'   => $post_id,
+					'old_stock' => $old_stock,
+				)
+			);
 		}
 
 		// Skip if stock hasn't actually changed (only if we have old stock to compare).
 		if ( null !== $old_stock && $old_stock === $new_stock ) {
+			$this->debug_log(
+				'log_manual_stock_change: Skipped - stock unchanged',
+				array(
+					'post_id'   => $post_id,
+					'old_stock' => $old_stock,
+					'new_stock' => $new_stock,
+				)
+			);
 			return;
 		}
 
 		// Check if stock was actually submitted in POST (indicating a manual change).
 		$stock_was_submitted = isset( $_POST['_stock'] ) || isset( $_POST['_manage_stock'] );
 		
+		$this->debug_log(
+			'log_manual_stock_change: Validation checks',
+			array(
+				'post_id'           => $post_id,
+				'stock_was_submitted' => $stock_was_submitted,
+				'old_stock'         => $old_stock,
+				'new_stock'         => $new_stock,
+			)
+		);
+		
 		// Only log if stock was actually submitted or if we can detect a change.
 		if ( ! $stock_was_submitted && null === $old_stock && null === $new_stock ) {
+			$this->debug_log(
+				'log_manual_stock_change: Skipped - no stock data',
+				array(
+					'post_id'           => $post_id,
+					'stock_was_submitted' => $stock_was_submitted,
+				)
+			);
 			return;
 		}
 
 		// Determine reason.
 		$change_reason = __( 'Manual edit: Product edit page', 'anony-stock-log' );
 
+		$this->debug_log(
+			'log_manual_stock_change: Saving log entry',
+			array(
+				'post_id'       => $post_id,
+				'old_stock'     => $old_stock,
+				'new_stock'     => $new_stock,
+				'change_reason' => $change_reason,
+			)
+		);
+
 		// Log the change.
-		$this->save_log( $product, $old_stock, $new_stock, 'manual', array( 'change_reason' => $change_reason ) );
+		$log_id = $this->save_log( $product, $old_stock, $new_stock, 'manual', array( 'change_reason' => $change_reason ) );
+		
+		$this->debug_log(
+			'log_manual_stock_change: Log entry saved',
+			array(
+				'post_id' => $post_id,
+				'log_id'  => $log_id,
+			)
+		);
 	}
 
 	/**
@@ -534,12 +725,14 @@ class Anony_Stock_Logger {
 	 */
 	private function save_log( $product, $old_stock, $new_stock, $change_type = 'manual', $extra_data = array() ) {
 		if ( ! $product instanceof WC_Product ) {
-			return;
+			$this->debug_log( 'save_log: Not a WC_Product instance' );
+			return false;
 		}
 
 		$product_id = $product->get_id();
 		if ( ! $product_id ) {
-			return;
+			$this->debug_log( 'save_log: No product ID' );
+			return false;
 		}
 
 		// Calculate stock change.
@@ -568,8 +761,24 @@ class Anony_Stock_Logger {
 			$log_data['hook_line'] = $hook_location['line'];
 		}
 
+		$this->debug_log(
+			'save_log: Preparing to insert log',
+			array(
+				'product_id'    => $product_id,
+				'log_data'      => $log_data,
+			)
+		);
+
 		// Save log.
-		Anony_Stock_Log_Database::insert_log( $log_data );
+		$log_id = Anony_Stock_Log_Database::insert_log( $log_data );
+		
+		if ( false === $log_id ) {
+			$this->debug_log( 'save_log: Failed to insert log', array( 'product_id' => $product_id ) );
+		} else {
+			$this->debug_log( 'save_log: Log inserted successfully', array( 'product_id' => $product_id, 'log_id' => $log_id ) );
+		}
+
+		return $log_id;
 	}
 }
 

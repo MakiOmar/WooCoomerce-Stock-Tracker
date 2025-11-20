@@ -3,7 +3,7 @@
  * Plugin Name: Anony Stock Log
  * Plugin URI: https://github.com/MakiOmar/WooCoomerce-Stock-Tracker
  * Description: Accurate stock logging for WooCommerce products with advanced filtering capabilities. Track all stock changes including manual edits, orders, restorations, and REST API updates. Filter by product ID, SKU, name, date range, and change type. Fully WPCS compliant.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Mohammad Omar
  * Author URI: https://github.com/MakiOmar
  * Text Domain: anony-stock-log
@@ -40,10 +40,10 @@ if ( method_exists( $anony_stock_log_update_checker, 'addHttpRequestArgFilter' )
 				$options['headers'] = array();
 			}
 
-			$options['headers']['User-Agent']      = 'Anony-Stock-Log/1.0.1';
+			$options['headers']['User-Agent']      = 'Anony-Stock-Log/1.0.2';
 			$options['headers']['Accept']          = 'application/vnd.github.v3+json';
 			$options['headers']['X-Plugin-Name']   = 'Anony Stock Log';
-			$options['headers']['X-Plugin-Version'] = '1.0.1';
+			$options['headers']['X-Plugin-Version'] = '1.0.2';
 			$options['headers']['Cache-Control']   = 'no-cache';
 
 			return $options;
@@ -57,7 +57,7 @@ if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 }
 
 // Define plugin constants.
-define( 'ANONY_STOCK_LOG_VERSION', '1.0.1' );
+define( 'ANONY_STOCK_LOG_VERSION', '1.0.2' );
 define( 'ANONY_STOCK_LOG_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ANONY_STOCK_LOG_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'ANONY_STOCK_LOG_PLUGIN_FILE', __FILE__ );
