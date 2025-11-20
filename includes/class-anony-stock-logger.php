@@ -85,7 +85,17 @@ class Anony_Stock_Logger {
 		// Track order stock changes - hook before stock is reduced.
 		add_action( 'woocommerce_reduce_order_stock', array( $this, 'track_order_stock_before' ), 5, 1 );
 		add_action( 'woocommerce_reduce_order_stock', array( $this, 'log_order_stock_reduction' ), 10, 1 );
+		
+		// Track order stock before restoration (hook early to capture old stock).
+		add_action( 'woocommerce_restore_order_stock', array( $this, 'track_order_stock_before_restore' ), 5, 1 );
 		add_action( 'woocommerce_restore_order_stock', array( $this, 'log_order_stock_restore' ), 10, 1 );
+		
+		// Hook into order status changes to catch cancellations and refunds.
+		add_action( 'woocommerce_order_status_changed', array( $this, 'handle_order_status_change' ), 10, 4 );
+		
+		// Also hook directly into cancellation and refund status changes as backup.
+		add_action( 'woocommerce_order_status_cancelled', array( $this, 'ensure_stock_restore_logged' ), 20, 1 );
+		add_action( 'woocommerce_order_status_refunded', array( $this, 'ensure_stock_restore_logged' ), 20, 1 );
 
 		// Track manual stock changes.
 		add_action( 'wp_ajax_woocommerce_save_product_variations', array( $this, 'track_variation_stock' ), 5 );
@@ -357,11 +367,16 @@ class Anony_Stock_Logger {
 	}
 
 	/**
-	 * Log order stock restore.
+	 * Track stock before order stock restoration.
 	 *
 	 * @param WC_Order $order Order object.
 	 */
-	public function log_order_stock_restore( $order ) {
+	public function track_order_stock_before_restore( $order ) {
+		$this->debug_log(
+			'track_order_stock_before_restore: Hook fired',
+			array( 'order_id' => $order instanceof WC_Order ? $order->get_id() : 'not WC_Order' )
+		);
+
 		if ( ! $order instanceof WC_Order ) {
 			return;
 		}
@@ -377,24 +392,240 @@ class Anony_Stock_Logger {
 				continue;
 			}
 
-			$quantity = $item->get_quantity();
+			// Store current stock BEFORE restoration (at priority 5, this happens before WooCommerce restores stock).
 			$old_stock = $product->get_stock_quantity();
-			$new_stock = $old_stock + $quantity;
+			$this->product_stock_before[ $product_id ] = $old_stock;
 
-			$this->save_log(
-				$product,
-				$old_stock,
-				$new_stock,
-				'restore',
+			$this->debug_log(
+				'track_order_stock_before_restore: Stock tracked',
 				array(
-					'order_id'      => $order->get_id(),
-					'change_reason' => sprintf(
-						/* translators: %s: order ID */
-						__( 'Restore from order #%s', 'anony-stock-log' ),
-						$order->get_id()
-					),
+					'order_id'   => $order->get_id(),
+					'product_id' => $product_id,
+					'old_stock'  => $old_stock,
+					'quantity'   => $item->get_quantity(),
 				)
 			);
+		}
+	}
+
+	/**
+	 * Log order stock restore.
+	 *
+	 * @param WC_Order $order Order object.
+	 */
+	public function log_order_stock_restore( $order ) {
+		$this->debug_log(
+			'log_order_stock_restore: Hook fired',
+			array( 'order_id' => $order instanceof WC_Order ? $order->get_id() : 'not WC_Order' )
+		);
+
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+
+		foreach ( $order->get_items() as $item ) {
+			$product = $item->get_product();
+			if ( ! $product ) {
+				continue;
+			}
+
+			$product_id = $product->get_id();
+			if ( ! $product_id ) {
+				continue;
+			}
+
+			// Skip if stock management is not enabled.
+			if ( ! $product->managing_stock() ) {
+				$this->debug_log(
+					'log_order_stock_restore: Skipped - stock management not enabled',
+					array(
+						'order_id'   => $order->get_id(),
+						'product_id' => $product_id,
+					)
+				);
+				continue;
+			}
+
+			$quantity = $item->get_quantity();
+			
+			// Get old stock from tracking (before restoration).
+			$old_stock = isset( $this->product_stock_before[ $product_id ] ) ? $this->product_stock_before[ $product_id ] : null;
+			
+			// Get new stock (after restoration by WooCommerce).
+			$new_stock = $product->get_stock_quantity();
+			
+			// If we don't have old stock from tracking, calculate it from new stock and quantity.
+			if ( null === $old_stock ) {
+				$old_stock = $new_stock - $quantity;
+			}
+
+			$this->debug_log(
+				'log_order_stock_restore: Stock values',
+				array(
+					'order_id'   => $order->get_id(),
+					'product_id' => $product_id,
+					'old_stock'  => $old_stock,
+					'new_stock'  => $new_stock,
+					'quantity'   => $quantity,
+					'tracked_before' => isset( $this->product_stock_before[ $product_id ] ),
+				)
+			);
+
+			// Only log if stock actually changed.
+			if ( $old_stock !== $new_stock ) {
+				$this->save_log(
+					$product,
+					$old_stock,
+					$new_stock,
+					'restore',
+					array(
+						'order_id'      => $order->get_id(),
+						'change_reason' => sprintf(
+							/* translators: %s: order ID */
+							__( 'Restore from order #%s', 'anony-stock-log' ),
+							$order->get_id()
+						),
+					)
+				);
+			} else {
+				$this->debug_log(
+					'log_order_stock_restore: Skipped - stock unchanged',
+					array(
+						'order_id'   => $order->get_id(),
+						'product_id' => $product_id,
+						'old_stock'  => $old_stock,
+						'new_stock'  => $new_stock,
+					)
+				);
+			}
+		}
+	}
+
+	/**
+	 * Handle order status change to catch cancellations and refunds.
+	 *
+	 * @param int    $order_id Order ID.
+	 * @param string $old_status Old order status.
+	 * @param string $new_status New order status.
+	 * @param WC_Order $order Order object.
+	 */
+	public function handle_order_status_change( $order_id, $old_status, $new_status, $order ) {
+		$this->debug_log(
+			'handle_order_status_change: Hook fired',
+			array(
+				'order_id'    => $order_id,
+				'old_status'  => $old_status,
+				'new_status'  => $new_status,
+				'is_WC_Order' => $order instanceof WC_Order,
+			)
+		);
+
+		// WooCommerce should automatically trigger woocommerce_restore_order_stock when status changes to cancelled or refunded.
+		if ( 'cancelled' === $new_status || 'refunded' === $new_status ) {
+			$this->debug_log(
+				'handle_order_status_change: Order cancelled/refunded - stock should be restored',
+				array(
+					'order_id'   => $order_id,
+					'new_status' => $new_status,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Ensure stock restoration is logged after order cancellation/refund.
+	 * This is a backup method in case woocommerce_restore_order_stock didn't fire.
+	 *
+	 * @param int $order_id Order ID.
+	 */
+	public function ensure_stock_restore_logged( $order_id ) {
+		$this->debug_log(
+			'ensure_stock_restore_logged: Hook fired',
+			array( 'order_id' => $order_id )
+		);
+
+		// Check if stock restoration was already logged via woocommerce_restore_order_stock.
+		// We'll check by seeing if stock increased for products in this order.
+		$this->check_and_log_restored_stock( $order_id );
+	}
+
+	/**
+	 * Check and log restored stock after order status change.
+	 *
+	 * @param int $order_id Order ID.
+	 */
+	public function check_and_log_restored_stock( $order_id ) {
+		$order = wc_get_order( $order_id );
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+
+		$this->debug_log(
+			'check_and_log_restored_stock: Checking restored stock',
+			array( 'order_id' => $order_id )
+		);
+
+		// This method is a safety net in case woocommerce_restore_order_stock didn't fire.
+		// But typically, it should have been handled by log_order_stock_restore already.
+		// We'll check if stock was restored and log if needed.
+		foreach ( $order->get_items() as $item ) {
+			$product = $item->get_product();
+			if ( ! $product || ! $product->managing_stock() ) {
+				continue;
+			}
+
+			$product_id = $product->get_id();
+			if ( ! $product_id ) {
+				continue;
+			}
+
+			// Check if we already logged this restoration.
+			// If product_stock_before is not set for this product, it means log_order_stock_restore might not have been called.
+			if ( ! isset( $this->product_stock_before[ $product_id ] ) ) {
+				$this->debug_log(
+					'check_and_log_restored_stock: Stock was not tracked before restore - checking if we need to log',
+					array(
+						'order_id'   => $order_id,
+						'product_id' => $product_id,
+					)
+				);
+				
+				// Try to get the last stock from log to determine if stock was increased.
+				$current_stock = $product->get_stock_quantity();
+				$last_logged_stock = $this->get_last_stock_from_log( $product_id );
+				
+				if ( null !== $last_logged_stock && $current_stock > $last_logged_stock ) {
+					// Stock was increased - likely from order cancellation/refund.
+					$quantity = $item->get_quantity();
+					$old_stock = $last_logged_stock;
+					$new_stock = $current_stock;
+
+					$this->debug_log(
+						'check_and_log_restored_stock: Logging missed stock restoration',
+						array(
+							'order_id'   => $order_id,
+							'product_id' => $product_id,
+							'old_stock'  => $old_stock,
+							'new_stock'  => $new_stock,
+						)
+					);
+
+					$this->save_log(
+						$product,
+						$old_stock,
+						$new_stock,
+						'restore',
+						array(
+							'order_id'      => $order->get_id(),
+							'change_reason' => sprintf(
+								/* translators: %s: order ID */
+								__( 'Restore from order #%s (auto-detected)', 'anony-stock-log' ),
+								$order->get_id()
+							),
+						)
+					);
+				}
+			}
 		}
 	}
 
