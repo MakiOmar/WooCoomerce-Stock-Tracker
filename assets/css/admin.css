@@ -1,0 +1,188 @@
+/**
+ * Admin styles for Anony Stock Log plugin.
+ *
+ * @package Anony_Stock_Log
+ */
+
+.anony-stock-log-wrap {
+	margin-top: 20px;
+}
+
+.anony-stock-log-filters {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 20px;
+	margin: 20px 0;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.anony-filter-row {
+	display: flex;
+	gap: 20px;
+	margin-bottom: 15px;
+	flex-wrap: wrap;
+}
+
+.anony-filter-field {
+	flex: 1;
+	min-width: 200px;
+}
+
+.anony-filter-field label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 600;
+	color: #23282d;
+}
+
+.anony-filter-field input[type="text"],
+.anony-filter-field input[type="number"],
+.anony-filter-field input[type="date"],
+.anony-filter-field select {
+	width: 100%;
+	padding: 6px 10px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	font-size: 14px;
+}
+
+.anony-filter-field input[type="text"]:focus,
+.anony-filter-field input[type="number"]:focus,
+.anony-filter-field input[type="date"]:focus,
+.anony-filter-field select:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: 2px solid transparent;
+}
+
+.anony-filter-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 10px;
+}
+
+.anony-stock-log-stats {
+	margin: 20px 0;
+	font-size: 14px;
+	color: #646970;
+}
+
+.anony-stock-log-table {
+	margin-top: 20px;
+	border-collapse: collapse;
+}
+
+.anony-stock-log-table th {
+	background-color: #f6f7f7;
+	font-weight: 600;
+	padding: 10px;
+	border-bottom: 1px solid #ccd0d4;
+	text-align: left;
+}
+
+.anony-stock-log-table td {
+	padding: 10px;
+	border-bottom: 1px solid #ccd0d4;
+}
+
+.anony-stock-log-table tbody tr:hover {
+	background-color: #f6f7f7;
+}
+
+.anony-stock-log-table .column-id {
+	width: 60px;
+}
+
+.anony-stock-log-table .column-date {
+	width: 150px;
+}
+
+.anony-stock-log-table .column-product {
+	width: 200px;
+}
+
+.anony-stock-log-table .column-sku {
+	width: 120px;
+}
+
+.anony-stock-log-table .column-stock {
+	width: 100px;
+	text-align: right;
+}
+
+.anony-stock-log-table .column-change {
+	width: 100px;
+	text-align: right;
+	font-weight: 600;
+}
+
+.anony-stock-log-table .column-type {
+	width: 100px;
+}
+
+.anony-stock-log-table .column-reason {
+	width: 150px;
+}
+
+.anony-stock-log-table .column-user {
+	width: 120px;
+}
+
+.stock-increase {
+	color: #00a32a;
+}
+
+.stock-decrease {
+	color: #d63638;
+}
+
+.stock-no-change {
+	color: #646970;
+}
+
+.anony-stock-log-pagination {
+	margin: 20px 0;
+	text-align: center;
+}
+
+.anony-stock-log-pagination .page-numbers {
+	display: inline-block;
+	padding: 8px 12px;
+	margin: 0 2px;
+	text-decoration: none;
+	border: 1px solid #ccd0d4;
+	border-radius: 3px;
+	color: #2271b1;
+	background: #fff;
+}
+
+.anony-stock-log-pagination .page-numbers:hover {
+	background: #f6f7f7;
+	border-color: #2271b1;
+}
+
+.anony-stock-log-pagination .page-numbers.current {
+	background: #2271b1;
+	color: #fff;
+	border-color: #2271b1;
+	font-weight: 600;
+}
+
+/* Responsive design */
+@media screen and (max-width: 782px) {
+	.anony-filter-row {
+		flex-direction: column;
+	}
+
+	.anony-filter-field {
+		min-width: 100%;
+	}
+
+	.anony-stock-log-table {
+		display: block;
+		overflow-x: auto;
+		white-space: nowrap;
+	}
+}
+
