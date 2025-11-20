@@ -517,15 +517,26 @@ class Anony_Stock_Logger {
 			return;
 		}
 
-		$new_stock = $product->get_stock_quantity();
+		// Get old stock from tracking.
 		$old_stock = isset( $this->product_stock_before[ $post_id ] ) ? $this->product_stock_before[ $post_id ] : null;
+
+		// Get new stock from POST data (if available) - this is more accurate than product object which might not be updated yet.
+		$new_stock = null;
+		if ( isset( $_POST['_stock'] ) && '' !== $_POST['_stock'] ) {
+			$new_stock = intval( $_POST['_stock'] );
+		} else {
+			// Fallback to product object.
+			$new_stock = $product->get_stock_quantity();
+		}
 
 		$this->debug_log(
 			'log_manual_stock_change: Stock values before lookup',
 			array(
 				'post_id'        => $post_id,
 				'old_stock'      => $old_stock,
+				'new_stock_from_post' => isset( $_POST['_stock'] ) ? $_POST['_stock'] : 'not set',
 				'new_stock'      => $new_stock,
+				'new_stock_from_product' => $product->get_stock_quantity(),
 				'tracked_before' => isset( $this->product_stock_before[ $post_id ] ),
 			)
 		);

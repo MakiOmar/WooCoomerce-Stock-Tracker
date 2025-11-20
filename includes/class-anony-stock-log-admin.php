@@ -222,6 +222,19 @@ class Anony_Stock_Log_Admin {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved successfully.', 'anony-stock-log' ) . '</p></div>';
 		}
 
+		// Handle table creation.
+		$table_created = false;
+		if ( isset( $_POST['create_table'] ) && check_admin_referer( 'create_table', 'anony_stock_log_create_table' ) ) {
+			Anony_Stock_Log_Database::create_tables();
+			$table_created = true;
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Database table created successfully!', 'anony-stock-log' ) . '</p></div>';
+		}
+
+		// Check if table exists.
+		global $wpdb;
+		$table_name = Anony_Stock_Log_Database::get_table_name();
+		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name;
+
 		// Get current settings.
 		$track_hook_location = Anony_Stock_Log_Settings::is_hook_tracking_enabled();
 
