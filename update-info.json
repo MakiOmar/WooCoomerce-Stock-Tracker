@@ -1,11 +1,11 @@
 {
     "name": "Anony Stock Log",
     "slug": "anony-stock-log",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "tested": "6.7",
     "requires": "5.0",
     "requires_php": "7.2",
-    "last_updated": "2025-01-15",
+    "last_updated": "2025-11-20",
     "homepage": "https://github.com/MakiOmar/WooCoomerce-Stock-Tracker",
     "author": "Mohammad Omar",
     "author_profile": "https://github.com/MakiOmar",
@@ -13,7 +13,7 @@
     "sections": {
         "description": "Accurate stock logging for WooCommerce products with advanced filtering capabilities. Track all stock changes including manual edits, orders, restorations, and REST API updates. Filter by product ID, SKU, name, date range, and change type. Fully WPCS compliant.",
         "installation": "<h4>Installation</h4><ol><li>Upload the plugin files to /wp-content/plugins/anony-stock-log/ directory</li><li>Activate the plugin through the 'Plugins' menu in WordPress</li><li>Ensure WooCommerce is installed and active</li><li>Navigate to WooCommerce → Stock Log to view logs</li></ol>",
-        "changelog": "<h4>Version 1.0.2</h4><ul><li>Debug: Added comprehensive debug logging for all stock change events (requires WP_DEBUG enabled)</li><li>Debug: Track all hook firings, stock values, and log save operations</li><li>Fix: Improved manual stock change detection from product edit page</li><li>Debug: Detailed logging to troubleshoot stock change tracking issues</li></ul><h4>Version 1.0.1</h4><ul><li>Fix: Improved manual stock change logging from product edit page</li><li>Fix: Added track_product_stock_before_save to capture old stock before save</li><li>Fix: Better detection and logging of manual stock edits</li><li>Fix: Removed duplicate get_last_stock_from_log() method declaration</li><li>Feature: Plugin update checker implementation for automatic GitHub updates</li><li>Feature: Debug page for update testing and troubleshooting</li></ul><h4>Version 1.0.0</h4><ul><li>Initial release</li><li>Comprehensive stock logging for WooCommerce products</li><li>Advanced filtering by product ID, SKU, name, date range, and change type</li><li>Optional hook location tracking feature</li><li>Settings page for configuration</li><li>WPCS compliant codebase</li></ul>",
+        "changelog": "<h4>Version 1.0.3</h4><ul><li>Fix: Manual stock change logging now reads new stock value from POST data instead of product object</li><li>Fix: Added database table existence check on settings page</li><li>Fix: Added button to create database table if missing from settings page</li><li>Fix: Improved stock change detection accuracy for manual product edits</li></ul><h4>Version 1.0.2</h4><ul><li>Debug: Added comprehensive debug logging for all stock change events (requires WP_DEBUG enabled)</li><li>Debug: Track all hook firings, stock values, and log save operations</li><li>Fix: Improved manual stock change detection from product edit page</li><li>Debug: Detailed logging to troubleshoot stock change tracking issues</li></ul><h4>Version 1.0.1</h4><ul><li>Fix: Improved manual stock change logging from product edit page</li><li>Fix: Added track_product_stock_before_save to capture old stock before save</li><li>Fix: Better detection and logging of manual stock edits</li><li>Fix: Removed duplicate get_last_stock_from_log() method declaration</li><li>Feature: Plugin update checker implementation for automatic GitHub updates</li><li>Feature: Debug page for update testing and troubleshooting</li></ul><h4>Version 1.0.0</h4><ul><li>Initial release</li><li>Comprehensive stock logging for WooCommerce products</li><li>Advanced filtering by product ID, SKU, name, date range, and change type</li><li>Optional hook location tracking feature</li><li>Settings page for configuration</li><li>WPCS compliant codebase</li></ul>",
         "faq": "<h4>How does the plugin work?</h4><p>The plugin automatically tracks all stock changes in WooCommerce products and stores detailed information including old stock, new stock, change type, user information, and optional hook location tracking.</p><h4>Does it affect performance?</h4><p>The plugin is optimized for performance. Hook location tracking is disabled by default and can be enabled from the settings page if needed for debugging purposes.</p>"
     },
     "banners": {
