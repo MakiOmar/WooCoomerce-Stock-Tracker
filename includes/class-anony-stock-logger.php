@@ -414,26 +414,6 @@ class Anony_Stock_Logger {
 	}
 
 	/**
-	 * Get last stock quantity from log for a product.
-	 *
-	 * @param int $product_id Product ID.
-	 * @return int|null Last stock quantity or null if not found.
-	 */
-	private function get_last_stock_from_log( $product_id ) {
-		global $wpdb;
-		$table_name = Anony_Stock_Log_Database::get_table_name();
-
-		$last_stock = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT new_stock FROM {$table_name} WHERE product_id = %d ORDER BY created_at DESC, id DESC LIMIT 1",
-				$product_id
-			)
-		);
-
-		return null !== $last_stock ? (int) $last_stock : null;
-	}
-
-	/**
 	 * Get hook location from backtrace.
 	 *
 	 * @return array|null Array with 'file' and 'line' keys, or null if tracking disabled.
