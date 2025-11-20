@@ -20,6 +20,42 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
+// Include the Plugin Update Checker library.
+require_once plugin_dir_path( __FILE__ ) . 'plugin-update-checker/plugin-update-checker.php';
+
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+// Initialize update checker with unique variable name.
+$anony_stock_log_update_checker = PucFactory::buildUpdateChecker(
+	'https://github.com/MakiOmar/WooCoomerce-Stock-Tracker/raw/main/update-info.json',
+	__FILE__,
+	'anony-stock-log'
+);
+
+// Add custom headers to avoid rate limiting.
+if ( method_exists( $anony_stock_log_update_checker, 'addHttpRequestArgFilter' ) ) {
+	$anony_stock_log_update_checker->addHttpRequestArgFilter(
+		function( $options ) {
+			if ( ! isset( $options['headers'] ) ) {
+				$options['headers'] = array();
+			}
+
+			$options['headers']['User-Agent']      = 'Anony-Stock-Log/1.0.0';
+			$options['headers']['Accept']          = 'application/vnd.github.v3+json';
+			$options['headers']['X-Plugin-Name']   = 'Anony Stock Log';
+			$options['headers']['X-Plugin-Version'] = '1.0.0';
+			$options['headers']['Cache-Control']   = 'no-cache';
+
+			return $options;
+		}
+	);
+}
+
+// Enable debug mode if WP_DEBUG is on.
+if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+	add_filter( 'puc_manual_final_check-anony-stock-log', '__return_true' );
+}
+
 // Define plugin constants.
 define( 'ANONY_STOCK_LOG_VERSION', '1.0.0' );
 define( 'ANONY_STOCK_LOG_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

@@ -76,6 +76,16 @@ class Anony_Stock_Log_Admin {
 			$this->page_slug . '-settings',
 			array( $this, 'render_settings_page' )
 		);
+
+		// Add update checker debug page.
+		add_submenu_page(
+			'woocommerce',
+			__( 'Stock Log Updates', 'anony-stock-log' ),
+			__( 'Updates', 'anony-stock-log' ),
+			'manage_woocommerce',
+			$this->page_slug . '-updates',
+			array( $this, 'render_updates_debug_page' )
+		);
 	}
 
 	/**
@@ -84,7 +94,7 @@ class Anony_Stock_Log_Admin {
 	 * @param string $hook Current page hook.
 	 */
 	public function enqueue_scripts( $hook ) {
-		if ( 'woocommerce_page_' . $this->page_slug !== $hook && 'woocommerce_page_' . $this->page_slug . '-settings' !== $hook ) {
+		if ( 'woocommerce_page_' . $this->page_slug !== $hook && 'woocommerce_page_' . $this->page_slug . '-settings' !== $hook && 'woocommerce_page_' . $this->page_slug . '-updates' !== $hook ) {
 			return;
 		}
 
@@ -216,6 +226,52 @@ class Anony_Stock_Log_Admin {
 		$track_hook_location = Anony_Stock_Log_Settings::is_hook_tracking_enabled();
 
 		include ANONY_STOCK_LOG_PLUGIN_DIR . 'templates/settings-page.php';
+	}
+
+	/**
+	 * Render updates debug page.
+	 */
+	public function render_updates_debug_page() {
+		global $anony_stock_log_update_checker;
+
+		// Handle clear cache action.
+		if ( isset( $_POST['clear_update_cache'] ) && check_admin_referer( 'clear_update_cache' ) ) {
+			delete_site_transient( 'update_plugins' );
+			delete_transient( 'puc_request_info-anony-stock-log' );
+
+			if ( isset( $anony_stock_log_update_checker ) && $anony_stock_log_update_checker ) {
+				$anony_stock_log_update_checker->resetUpdateState();
+			}
+
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Update cache cleared! Click "Force Check" below.', 'anony-stock-log' ) . '</p></div>';
+		}
+
+		// Handle force check action.
+		if ( isset( $_POST['force_check'] ) && check_admin_referer( 'force_check_updates' ) ) {
+			if ( isset( $anony_stock_log_update_checker ) && $anony_stock_log_update_checker ) {
+				$anony_stock_log_update_checker->checkForUpdates();
+			}
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Forced update check completed!', 'anony-stock-log' ) . '</p></div>';
+		}
+
+		// Get plugin data.
+		if ( ! function_exists( 'get_plugin_data' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$plugin_data = get_plugin_data( ANONY_STOCK_LOG_PLUGIN_FILE );
+		$current_version = $plugin_data['Version'];
+
+		// Get update info if available.
+		$update = null;
+		$update_checker_exists = isset( $anony_stock_log_update_checker ) && $anony_stock_log_update_checker;
+		if ( $update_checker_exists ) {
+			$update = $anony_stock_log_update_checker->getUpdate();
+		}
+
+		// Make variables available to template.
+		$anony_stock_log_update_checker_instance = $update_checker_exists ? $anony_stock_log_update_checker : null;
+
+		include ANONY_STOCK_LOG_PLUGIN_DIR . 'templates/updates-debug-page.php';
 	}
 }
 
