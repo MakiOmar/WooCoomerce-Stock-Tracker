@@ -67,6 +67,15 @@ class Anony_Stock_Log_Admin {
 			$this->page_slug,
 			array( $this, 'render_page' )
 		);
+
+		add_submenu_page(
+			'woocommerce',
+			__( 'Stock Log Settings', 'anony-stock-log' ),
+			__( 'Stock Log Settings', 'anony-stock-log' ),
+			'manage_woocommerce',
+			$this->page_slug . '-settings',
+			array( $this, 'render_settings_page' )
+		);
 	}
 
 	/**
@@ -75,7 +84,7 @@ class Anony_Stock_Log_Admin {
 	 * @param string $hook Current page hook.
 	 */
 	public function enqueue_scripts( $hook ) {
-		if ( 'woocommerce_page_' . $this->page_slug !== $hook ) {
+		if ( 'woocommerce_page_' . $this->page_slug !== $hook && 'woocommerce_page_' . $this->page_slug . '-settings' !== $hook ) {
 			return;
 		}
 
@@ -186,6 +195,27 @@ class Anony_Stock_Log_Admin {
 			return '<span class="stock-decrease">' . esc_html( number_format_i18n( $stock_change ) ) . '</span>';
 		}
 		return '<span class="stock-no-change">' . esc_html( number_format_i18n( 0 ) ) . '</span>';
+	}
+
+	/**
+	 * Render settings page.
+	 */
+	public function render_settings_page() {
+		// Handle form submission.
+		if ( isset( $_POST['anony_stock_log_settings'] ) && check_admin_referer( 'anony_stock_log_settings', 'anony_stock_log_settings_nonce' ) ) {
+			$settings = array(
+				'track_hook_location' => isset( $_POST['track_hook_location'] ) && '1' === $_POST['track_hook_location'],
+			);
+
+			Anony_Stock_Log_Settings::update_all( $settings );
+
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved successfully.', 'anony-stock-log' ) . '</p></div>';
+		}
+
+		// Get current settings.
+		$track_hook_location = Anony_Stock_Log_Settings::is_hook_tracking_enabled();
+
+		include ANONY_STOCK_LOG_PLUGIN_DIR . 'templates/settings-page.php';
 	}
 }
 

@@ -63,6 +63,7 @@ class Anony_Stock_Log {
 	 */
 	private function includes() {
 		require_once ANONY_STOCK_LOG_PLUGIN_DIR . 'includes/class-anony-stock-log-database.php';
+		require_once ANONY_STOCK_LOG_PLUGIN_DIR . 'includes/class-anony-stock-log-settings.php';
 		require_once ANONY_STOCK_LOG_PLUGIN_DIR . 'includes/class-anony-stock-logger.php';
 		require_once ANONY_STOCK_LOG_PLUGIN_DIR . 'includes/class-anony-stock-log-admin.php';
 	}
@@ -89,6 +90,8 @@ class Anony_Stock_Log {
 
 		// Initialize components.
 		Anony_Stock_Log_Database::get_instance();
+		Anony_Stock_Log_Database::maybe_migrate_table(); // Run migration check on load.
+		Anony_Stock_Log_Settings::init_defaults();
 		Anony_Stock_Logger::get_instance();
 		Anony_Stock_Log_Admin::get_instance();
 	}
@@ -118,6 +121,8 @@ class Anony_Stock_Log {
 		}
 
 		Anony_Stock_Log_Database::create_tables();
+		Anony_Stock_Log_Database::maybe_migrate_table();
+		Anony_Stock_Log_Settings::init_defaults();
 	}
 
 	/**

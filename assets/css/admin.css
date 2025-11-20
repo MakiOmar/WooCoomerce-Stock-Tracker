@@ -129,6 +129,11 @@
 	width: 120px;
 }
 
+.anony-stock-log-table .column-hook {
+	width: 250px;
+	font-size: 11px;
+}
+
 .stock-increase {
 	color: #00a32a;
 }

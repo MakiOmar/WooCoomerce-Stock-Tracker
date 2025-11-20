@@ -66,6 +66,8 @@ class Anony_Stock_Log_Database {
 			order_id bigint(20) UNSIGNED DEFAULT NULL,
 			ip_address varchar(45) DEFAULT NULL,
 			user_agent text DEFAULT NULL,
+			hook_file varchar(500) DEFAULT NULL,
+			hook_line int(11) DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY product_id (product_id),
@@ -77,8 +79,53 @@ class Anony_Stock_Log_Database {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 
+		// Check if we need to migrate existing table.
+		self::maybe_migrate_table();
+
 		// Store version for future migrations.
-		update_option( 'anony_stock_log_db_version', '1.0.0' );
+		update_option( 'anony_stock_log_db_version', '1.0.1' );
+	}
+
+	/**
+	 * Migrate existing table to add new columns.
+	 */
+	public static function maybe_migrate_table() {
+		global $wpdb;
+
+		$table_name   = self::get_table_name();
+		$db_version   = get_option( 'anony_stock_log_db_version', '1.0.0' );
+
+		// Only migrate if version is less than 1.0.1.
+		if ( version_compare( $db_version, '1.0.1', '<' ) ) {
+			// Check if columns exist using SHOW COLUMNS (safer than INFORMATION_SCHEMA).
+			$columns = $wpdb->get_results( "SHOW COLUMNS FROM {$table_name}" );
+			
+			$has_hook_file = false;
+			$has_hook_line = false;
+
+			if ( ! empty( $columns ) ) {
+				foreach ( $columns as $column ) {
+					if ( 'hook_file' === $column->Field ) {
+						$has_hook_file = true;
+					}
+					if ( 'hook_line' === $column->Field ) {
+						$has_hook_line = true;
+					}
+				}
+			}
+
+			// Add hook_file column if it doesn't exist.
+			if ( ! $has_hook_file ) {
+				$wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN hook_file varchar(500) DEFAULT NULL AFTER user_agent" );
+			}
+
+			// Add hook_line column if it doesn't exist.
+			if ( ! $has_hook_line ) {
+				$wpdb->query( "ALTER TABLE {$table_name} ADD COLUMN hook_line int(11) DEFAULT NULL AFTER hook_file" );
+			}
+
+			update_option( 'anony_stock_log_db_version', '1.0.1' );
+		}
 	}
 
 	/**
@@ -105,6 +152,8 @@ class Anony_Stock_Log_Database {
 			'order_id'      => null,
 			'ip_address'    => self::get_client_ip(),
 			'user_agent'    => isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : null,
+			'hook_file'     => null,
+			'hook_line'     => null,
 			'created_at'    => current_time( 'mysql' ),
 		);
 
@@ -124,6 +173,8 @@ class Anony_Stock_Log_Database {
 			'order_id'      => ! empty( $data['order_id'] ) ? absint( $data['order_id'] ) : null,
 			'ip_address'    => $data['ip_address'],
 			'user_agent'    => $data['user_agent'],
+			'hook_file'     => ! empty( $data['hook_file'] ) ? sanitize_text_field( $data['hook_file'] ) : null,
+			'hook_line'     => ! empty( $data['hook_line'] ) ? absint( $data['hook_line'] ) : null,
 			'created_at'    => $data['created_at'],
 		);
 

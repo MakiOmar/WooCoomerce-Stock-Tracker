@@ -434,6 +434,56 @@ class Anony_Stock_Logger {
 	}
 
 	/**
+	 * Get hook location from backtrace.
+	 *
+	 * @return array|null Array with 'file' and 'line' keys, or null if tracking disabled.
+	 */
+	private function get_hook_location() {
+		// Check if hook tracking is enabled.
+		if ( ! class_exists( 'Anony_Stock_Log_Settings' ) || ! Anony_Stock_Log_Settings::is_hook_tracking_enabled() ) {
+			return null;
+		}
+
+		// Get backtrace, skipping our own methods.
+		$backtrace = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 15 );
+		if ( empty( $backtrace ) ) {
+			return null;
+		}
+
+		// Skip our own classes to find the actual caller.
+		$skip_classes = array( 'Anony_Stock_Logger', 'WC_Product', 'WC_Product_Variable' );
+		$skip_files = array( __FILE__, 'wp-includes/plugin.php', 'wp-includes/class-wp-hook.php' );
+
+		foreach ( $backtrace as $trace ) {
+			// Skip if this is our own class or file.
+			if ( ! empty( $trace['class'] ) && in_array( $trace['class'], $skip_classes, true ) ) {
+				continue;
+			}
+
+			if ( ! empty( $trace['file'] ) ) {
+				$file = $trace['file'];
+				// Skip WordPress core files.
+				foreach ( $skip_files as $skip_file ) {
+					if ( strpos( $file, $skip_file ) !== false ) {
+						continue 2;
+					}
+				}
+
+				// Found a relevant file - get relative path.
+				$file_path = str_replace( ABSPATH, '', $file );
+				$line = isset( $trace['line'] ) ? $trace['line'] : 0;
+
+				return array(
+					'file' => $file_path,
+					'line' => $line,
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Save log entry.
 	 *
 	 * @param WC_Product $product    Product object.
@@ -469,6 +519,13 @@ class Anony_Stock_Logger {
 		// Merge extra data.
 		if ( ! empty( $extra_data ) ) {
 			$log_data = array_merge( $log_data, $extra_data );
+		}
+
+		// Get hook location if tracking is enabled.
+		$hook_location = $this->get_hook_location();
+		if ( $hook_location ) {
+			$log_data['hook_file'] = $hook_location['file'];
+			$log_data['hook_line'] = $hook_location['line'];
 		}
 
 		// Save log.

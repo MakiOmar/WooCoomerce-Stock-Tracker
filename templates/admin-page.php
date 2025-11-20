@@ -15,6 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="wrap anony-stock-log-wrap">
 	<h1 class="wp-heading-inline"><?php esc_html_e( 'Stock Log', 'anony-stock-log' ); ?></h1>
+	<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . $page_slug . '-settings' ) ); ?>" class="page-title-action">
+		<?php esc_html_e( 'Settings', 'anony-stock-log' ); ?>
+	</a>
 	<hr class="wp-header-end">
 
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="anony-stock-log-filters">
@@ -97,6 +100,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<th class="column-type"><?php esc_html_e( 'Type', 'anony-stock-log' ); ?></th>
 					<th class="column-reason"><?php esc_html_e( 'Reason', 'anony-stock-log' ); ?></th>
 					<th class="column-user"><?php esc_html_e( 'User', 'anony-stock-log' ); ?></th>
+					<?php if ( Anony_Stock_Log_Settings::is_hook_tracking_enabled() ) : ?>
+						<th class="column-hook"><?php esc_html_e( 'Hook Location', 'anony-stock-log' ); ?></th>
+					<?php endif; ?>
 				</tr>
 			</thead>
 			<tbody>
@@ -151,6 +157,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 							}
 							?>
 						</td>
+						<?php if ( Anony_Stock_Log_Settings::is_hook_tracking_enabled() ) : ?>
+							<td class="column-hook">
+								<?php
+								if ( ! empty( $log['hook_file'] ) ) {
+									$hook_file = esc_html( $log['hook_file'] );
+									$hook_line = ! empty( $log['hook_line'] ) ? absint( $log['hook_line'] ) : 0;
+									
+									echo '<small style="font-family: monospace; font-size: 11px;">';
+									echo esc_html( $hook_file );
+									if ( $hook_line > 0 ) {
+										echo ':' . esc_html( $hook_line );
+									}
+									echo '</small>';
+								} else {
+									echo '—';
+								}
+								?>
+							</td>
+						<?php endif; ?>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
